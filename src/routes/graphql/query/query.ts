@@ -156,4 +156,4 @@ const query = new GraphQLObjectType({
   },
 });
 
-export { query };
+export { query, memberTypeId, post, profile, user };

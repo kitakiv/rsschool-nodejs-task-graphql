@@ -3,9 +3,11 @@ import { createGqlResponseSchema, gqlResponseSchema } from './schemas.js';
 import { graphql, GraphQLSchema } from 'graphql';
 import { query } from './query/query.js';
 import db from './database/data.js';
+import mutations from './mutation/mutation.js';
 
 const schema = new GraphQLSchema({
-  query
+  query,
+  mutation: mutations,
 })
 
 const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
