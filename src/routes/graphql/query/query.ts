@@ -11,6 +11,8 @@ import {
 import { scalar } from './scalar.js';
 import db from '../database/data.js';
 import { MemberTypeId } from '../../member-types/schemas.js';
+import DataLoader from 'dataloader';
+import { Post } from '@prisma/client';
 
 const memberTypeId = new GraphQLEnumType({
   name: 'MemberTypeId',
@@ -71,7 +73,9 @@ const user = new GraphQLObjectType({
     },
     posts: {
       type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(post))),
-      resolve: (parent) => db.prisma.post.findMany({ where: { authorId: parent.id } }),
+      resolve: async (parent, _, { postsLoader }: { postsLoader: DataLoader<string, Post[]> }) => {
+        return await postsLoader.load(parent.id);
+      },
     },
     userSubscribedTo: {
       type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(user))),
