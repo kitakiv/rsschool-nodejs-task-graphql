@@ -15,7 +15,8 @@ import { scalar } from './scalar.js';
 import db from '../database/data.js';
 import { MemberTypeId } from '../../member-types/schemas.js';
 import DataLoader from 'dataloader';
-import { Post, Profile, User } from '@prisma/client';
+import { Post } from '@prisma/client';
+import { parseResolveInfo } from 'graphql-parse-resolve-info';
 
 const memberTypeId = new GraphQLEnumType({
   name: 'MemberTypeId',
@@ -111,7 +112,24 @@ const query = new GraphQLObjectType({
     },
     users: {
       type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(user))),
-      resolve: () => db.prisma.user.findMany(),
+      resolve: async (_, __, contextValue, info) => {
+        const resolveInfo = parseResolveInfo(info);
+        const fields = resolveInfo?.fieldsByTypeName?.User || {};
+        const include: { posts?: boolean, profile?: boolean, userSubscribedTo?: boolean, subscribedToUser?: boolean} = {};
+        if (fields['posts']) {
+          include.posts = true;
+        }
+        if (fields['profile']) {
+          include.profile = true;
+        }
+        if (fields['userSubscribedTo']) {
+          include.userSubscribedTo = true;
+        }
+        if (fields['subscribedToUser']) {
+          include.subscribedToUser = true;
+        }
+        return db.prisma.user.findMany({ include });
+      }
     },
     user: {
       type: user as GraphQLObjectType,
