@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 import {
   GraphQLObjectType,
   GraphQLEnumType,
@@ -12,7 +15,7 @@ import { scalar } from './scalar.js';
 import db from '../database/data.js';
 import { MemberTypeId } from '../../member-types/schemas.js';
 import DataLoader from 'dataloader';
-import { Post } from '@prisma/client';
+import { Post, Profile, User } from '@prisma/client';
 
 const memberTypeId = new GraphQLEnumType({
   name: 'MemberTypeId',
@@ -51,7 +54,9 @@ const profile = new GraphQLObjectType({
     isMale: { type: new GraphQLNonNull(GraphQLBoolean) },
     yearOfBirth: { type: new GraphQLNonNull(GraphQLInt) },
     memberType: { type: new GraphQLNonNull(memberType),
-      resolve: (parent: { memberTypeId: string }) => db.prisma.memberType.findUnique({ where: { id: parent.memberTypeId } }),
+      resolve: (parent: { memberTypeId: string }, _, {memberTypeLoader}: {memberTypeLoader: DataLoader<string, MemberTypeId>}) => {
+        return memberTypeLoader.load(parent.memberTypeId);
+      },
     },
   },
 });
@@ -64,44 +69,27 @@ const user = new GraphQLObjectType({
     balance: { type: new GraphQLNonNull(GraphQLFloat) },
     profile: {
       type: profile,
-      resolve: (parent: { id: string }) =>
-        db.prisma.profile.findUnique({
-          where: {
-            userId: parent.id,
-          },
-        }),
+      resolve: (parent, _, contextValue) => {
+        return contextValue.profilesLoader.load(parent.id);
+      }
     },
     posts: {
       type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(post))),
-      resolve: async (parent, _, { postsLoader }: { postsLoader: DataLoader<string, Post[]> }) => {
+      resolve: async (parent: { id: string }, _, { postsLoader }: { postsLoader: DataLoader<string, Post[]> }) => {
         return await postsLoader.load(parent.id);
       },
     },
     userSubscribedTo: {
       type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(user))),
-      resolve: (parent: { id: string }) =>
-        db.prisma.user.findMany({
-          where: {
-            subscribedToUser: {
-              some: {
-                subscriberId: parent.id,
-              },
-            },
-          },
-        }),
+      resolve: async(parent: { id: string }, _, contextValue) => {
+        return await contextValue.userSubscribedToLoader.load(parent.id);
+      }
     },
     subscribedToUser: {
       type: new GraphQLNonNull(new GraphQLList(new GraphQLNonNull(user))),
-      resolve: (parent: { id: string }) =>
-        db.prisma.user.findMany({
-          where: {
-            userSubscribedTo: {
-              some: {
-                authorId: parent.id,
-              },
-            },
-          },
-        }),
+      resolve: (parent: { id: string }, _, contextValue) => {
+        return contextValue.subscribedToUserLoader.load(parent.id);
+      }
     },
   }),
 });
